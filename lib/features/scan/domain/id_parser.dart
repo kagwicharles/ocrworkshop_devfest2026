@@ -47,7 +47,7 @@ const idNumberLabels = [
   'NATIONAL ID',
 ];
 const dateOfBirthLabels = ['DATE OF BIRTH', 'DOB', 'BIRTH DATE'];
-
+const districtOfBirthLabels = ['DISTRICT OF BIRTH', 'BIRTH DISTRICT'];
 const _allLabels = [
   ...surnameLabels,
   ...givenNameLabels,
@@ -135,5 +135,6 @@ class IdParser {
     givenNames: valueFor(doc, givenNameLabels),
     idNumber: valueFor(doc, idNumberLabels),
     dateOfBirth: valueFor(doc, dateOfBirthLabels),
+    districtOfBirth: valueFor(doc, districtOfBirthLabels)
   );
 }

@@ -6,19 +6,21 @@ class IdFields extends Equatable {
     this.givenNames,
     this.idNumber,
     this.dateOfBirth,
+    this.districtOfBirth
   });
 
-  static const totalFields = 4;
+  static const totalFields = 5;
 
   final String? surname;
   final String? givenNames;
   final String? idNumber;
   final String? dateOfBirth;
+  final String? districtOfBirth;
 
   /// How many of the four fields were found.
   int get foundCount =>
-      [surname, givenNames, idNumber, dateOfBirth].where((v) => v != null).length;
+      [surname, givenNames, idNumber, dateOfBirth, districtOfBirth].where((v) => v != null).length;
 
   @override
-  List<Object?> get props => [surname, givenNames, idNumber, dateOfBirth];
+  List<Object?> get props => [surname, givenNames, idNumber, dateOfBirth, districtOfBirth];
 }

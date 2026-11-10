@@ -55,7 +55,8 @@ class ResultView extends StatelessWidget {
             flex: 2,
             child: ListView(
               children: [
-                _FieldTile('FULL NAMES', f.surname),
+                _FieldTile('Full Names', f.surname),
+                _FieldTile('District of Birth', f.districtOfBirth),
                 _FieldTile('ID number', f.idNumber),
                 _FieldTile('Date of birth', f.dateOfBirth),
                 ExpansionTile(
