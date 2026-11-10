@@ -37,10 +37,16 @@ double similarity(String a, String b) {
 }
 
 // Label synonyms per field. Add the labels YOUR card uses here.
-const surnameLabels = ['FULL NAMES', 'LAST NAME', 'FAMILY NAME'];
-const givenNameLabels = ['FULL NAMES', 'GIVEN NAME', 'FIRST NAME', 'OTHER NAMES'];
+const surnameLabels = ['FULL NAMES', 'SURNAME', 'LAST NAME', 'FAMILY NAME'];
+const givenNameLabels = [
+  'FULL NAMES',
+  'GIVEN NAMES',
+  'GIVEN NAME',
+  'FIRST NAME',
+  'OTHER NAMES',
+];
 const idNumberLabels = [
-  'ID NUMBER:',
+  'ID NUMBER',
   'ID NO',
   'IDENTITY NUMBER',
   'DOCUMENT NUMBER',
@@ -48,11 +54,24 @@ const idNumberLabels = [
 ];
 const dateOfBirthLabels = ['DATE OF BIRTH', 'DOB', 'BIRTH DATE'];
 const districtOfBirthLabels = ['DISTRICT OF BIRTH', 'BIRTH DISTRICT'];
+
+/// Printed on the card but not extracted. Listed only so they are never
+/// mistaken for the VALUE of a neighbouring field.
+const _otherCardLabels = [
+  'SEX',
+  'SERIAL NUMBER',
+  'PLACE OF ISSUE',
+  'DATE OF ISSUE',
+  'HOLDER SIGN',
+];
+
 const _allLabels = [
   ...surnameLabels,
   ...givenNameLabels,
   ...idNumberLabels,
   ...dateOfBirthLabels,
+  ...districtOfBirthLabels,
+  ..._otherCardLabels,
 ];
 
 bool _looksLikeLabel(String text) =>
@@ -71,22 +90,36 @@ double _verticalOverlap(Rect a, Rect b) {
   return smaller <= 0 ? 0 : overlap / smaller;
 }
 
-/// Finds the line that looks like one of [labels], then returns its value:
+int _digitCount(String v) => RegExp(r'\d').allMatches(v).length;
+
+bool _looksLikeName(String v) => _digitCount(v) == 0;
+
+/// Where to look first for a value, relative to its label.
+///  - [below]: label above the value (most fields on the card)
+///  - [right]: label beside the value, on the same row (the ID number)
+enum Placement { below, right }
+
+/// Finds the line that looks like one of [labels], then returns its value from:
 ///  1. text after a colon, or after the label on the same line;
-///  2. the nearest line just below (not another label);
-///  3. the nearest line to the right on the same row (not another label).
+///  2. the nearest candidates below and to the right, in the order set by [prefer].
+/// A candidate is skipped if it is another label or fails [accept], so a wrong
+/// neighbouring line is never taken as the value.
 String? valueFor(
     OcrDocument doc,
     List<String> labels, {
       double threshold = 0.8,
+      Placement prefer = Placement.below,
+      bool Function(String value)? accept,
     }) {
+  bool ok(String v) => v.isNotEmpty && (accept?.call(v) ?? true);
+
   for (final line in doc.lines) {
-    // "SURNAME TESTER" on one line, no colon.
+    // "ID NUMBER 12345678" on one line, no colon.
     final upper = line.text.toUpperCase();
     for (final l in labels) {
       if (upper.startsWith('$l ')) {
         final rest = line.text.substring(l.length).trim();
-        if (rest.isNotEmpty) return rest;
+        if (ok(rest)) return rest;
       }
     }
 
@@ -98,7 +131,7 @@ String? valueFor(
 
     if (colon != -1) {
       final inline = line.text.substring(colon + 1).trim();
-      if (inline.isNotEmpty) return inline;
+      if (ok(inline)) return inline;
     }
 
     final maxGap = line.box.height * 3;
@@ -109,20 +142,25 @@ String? valueFor(
         o.box.top - line.box.bottom <= maxGap &&
         o.box.left < line.box.right &&
         o.box.right > line.box.left &&
-        !_looksLikeLabel(o.text))
+        !_looksLikeLabel(o.text) &&
+        ok(o.text.trim()))
         .toList()
       ..sort((a, b) => a.box.top.compareTo(b.box.top));
-    if (below.isNotEmpty) return below.first.text.trim();
 
     final right = doc.lines
         .where((o) =>
     !identical(o, line) &&
         o.box.left >= line.box.right - 4 &&
-        _verticalOverlap(o.box, line.box) > 0.5 &&
-        !_looksLikeLabel(o.text))
+        _verticalOverlap(o.box, line.box) > 0.4 &&
+        !_looksLikeLabel(o.text) &&
+        ok(o.text.trim()))
         .toList()
       ..sort((a, b) => a.box.left.compareTo(b.box.left));
-    if (right.isNotEmpty) return right.first.text.trim();
+
+    final ordered = prefer == Placement.right
+        ? [...right, ...below]
+        : [...below, ...right];
+    if (ordered.isNotEmpty) return ordered.first.text.trim();
   }
   return null;
 }
@@ -131,10 +169,21 @@ class IdParser {
   const IdParser();
 
   IdFields parse(OcrDocument doc) => IdFields(
-    surname: valueFor(doc, surnameLabels),
-    givenNames: valueFor(doc, givenNameLabels),
-    idNumber: valueFor(doc, idNumberLabels),
-    dateOfBirth: valueFor(doc, dateOfBirthLabels),
-    districtOfBirth: valueFor(doc, districtOfBirthLabels)
+    surname: valueFor(doc, surnameLabels, accept: _looksLikeName),
+    givenNames: valueFor(doc, givenNameLabels, accept: _looksLikeName),
+    // The ID number's label sits beside its value, so look right first.
+    idNumber: valueFor(
+      doc,
+      idNumberLabels,
+      prefer: Placement.right,
+      accept: (v) => _digitCount(v) >= 6,
+    ),
+    dateOfBirth: valueFor(
+      doc,
+      dateOfBirthLabels,
+      accept: (v) => _digitCount(v) >= 4,
+    ),
+    districtOfBirth:
+    valueFor(doc, districtOfBirthLabels, accept: _looksLikeName),
   );
 }

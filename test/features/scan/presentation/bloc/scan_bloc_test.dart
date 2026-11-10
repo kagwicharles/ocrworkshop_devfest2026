@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui';
 
 import 'package:bloc_test/bloc_test.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:ocr_workshop/features/scan/domain/id_fields.dart';
 import 'package:ocr_workshop/features/scan/domain/id_parser.dart';

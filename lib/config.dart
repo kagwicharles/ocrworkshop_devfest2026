@@ -1,4 +1,6 @@
-/// Optional server OCR for the "on-device vs server" demo.
-/// flutter run --dart-define=OCR_SERVER_URL=http://<laptop-ip>:8000/ocr
-const ocrServerUrl = String.fromEnvironment('OCR_SERVER_URL');
-const bool serverConfigured = ocrServerUrl != '';
+/// Optional server used ONLY to verify extracted text fields.
+/// OCR always runs on the phone; the photo never leaves it.
+///
+///   flutter run --dart-define=VERIFY_SERVER_URL=http://<laptop-ip>:8000/verify
+const verifyServerUrl = String.fromEnvironment('VERIFY_SERVER_URL');
+const bool verificationConfigured = verifyServerUrl != '';

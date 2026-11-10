@@ -4,11 +4,12 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'config.dart';
 import 'features/scan/data/configurable_ocr_service.dart';
-import 'features/scan/data/http_ocr_service.dart';
+import 'features/scan/data/http_verification _service.dart';
 import 'features/scan/data/mlkit_ocr_service.dart';
 import 'features/scan/data/preprocess.dart';
 import 'features/scan/domain/id_parser.dart';
 import 'features/scan/domain/ocr_comparator.dart';
+import 'features/scan/domain/verification_service.dart';
 import 'features/scan/presentation/bloc/scan_bloc.dart';
 import 'features/scan/presentation/settings/demo_settings_cubit.dart';
 import 'features/scan/presentation/view/scan_page.dart';
@@ -38,11 +39,15 @@ class App extends StatelessWidget {
                     mlkit, PreprocessMode.grayscaleContrast),
                 'Binarized + half size': PreprocessingOcrService(
                     mlkit, PreprocessMode.binarizeHalfSize),
-                if (serverConfigured)
-                  'Server OCR': HttpOcrService(Uri.parse(ocrServerUrl)),
               },
             );
           },
+        ),
+        // Server is for verification only; it never receives the photo.
+        RepositoryProvider<VerificationService>(
+          create: (_) => verificationConfigured
+              ? HttpVerificationService(Uri.parse(verifyServerUrl))
+              : const DisabledVerificationService(),
         ),
       ],
       child: MultiBlocProvider(
@@ -56,11 +61,7 @@ class App extends StatelessWidget {
                 onDevice: mlkit,
                 preprocessed: PreprocessingOcrService(
                     mlkit, PreprocessMode.grayscaleContrast),
-                server: serverConfigured
-                    ? HttpOcrService(Uri.parse(ocrServerUrl))
-                    : null,
                 usePreprocess: () => settings.state.preprocess,
-                allowServer: () => settings.state.allowServerFallback,
               );
               return ScanBloc(ocr, const IdParser());
             },

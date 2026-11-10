@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../../config.dart';
 import '../settings/demo_settings_cubit.dart';
 
 Future<void> showDemoControls(BuildContext context) {
@@ -26,7 +25,7 @@ class _DemoControlsSheet extends StatelessWidget {
           children: [
             const ListTile(
               title: Text('Demo controls'),
-              subtitle: Text('Flip these live during the talk'),
+              subtitle: Text('Text recognition always runs on this phone'),
             ),
             SwitchListTile(
               title: const Text('Preprocess before OCR'),
@@ -44,16 +43,6 @@ class _DemoControlsSheet extends StatelessWidget {
               subtitle: const Text('Shows the coordinate-space bug. Turn off to fix.'),
               value: s.swapSize,
               onChanged: cubit.setSwapSize,
-            ),
-            SwitchListTile(
-              title: const Text('Allow server fallback'),
-              subtitle: Text(
-                serverConfigured
-                    ? 'If the phone reads too little, upload the photo to the OCR server. Off = nothing leaves the device.'
-                    : 'Start the app with --dart-define=OCR_SERVER_URL=... to enable.',
-              ),
-              value: s.allowServerFallback,
-              onChanged: serverConfigured ? cubit.setAllowServerFallback : null,
             ),
           ],
         ),

@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../domain/verification_service.dart';
 import '../bloc/scan_state.dart';
 import '../settings/demo_settings_cubit.dart';
+import '../verification/verification_cubit.dart';
 import '../widgets/box_overlay.dart';
+import '../widgets/verification_panel.dart';
 
 class ResultView extends StatelessWidget {
   const ResultView({
@@ -21,7 +24,6 @@ class ResultView extends StatelessWidget {
   Widget build(BuildContext context) {
     final f = state.fields;
     final settings = context.watch<DemoSettingsCubit>().state;
-    final onServer = state.document.engine == 'server';
 
     return SafeArea(
       child: Column(
@@ -38,27 +40,31 @@ class ResultView extends StatelessWidget {
               ),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 12),
             child: Align(
               alignment: Alignment.centerLeft,
               child: Chip(
-                avatar: Icon(
-                  onServer ? Icons.cloud_upload_outlined : Icons.smartphone,
-                  size: 18,
-                ),
-                label: Text(onServer ? 'Read on the server' : 'Read on this device'),
+                avatar: Icon(Icons.smartphone, size: 18),
+                label: Text('Read on this device'),
               ),
             ),
           ),
           Expanded(
-            flex: 2,
+            flex: 3,
             child: ListView(
               children: [
                 _FieldTile('Full Names', f.surname),
                 _FieldTile('District of Birth', f.districtOfBirth),
                 _FieldTile('ID number', f.idNumber),
                 _FieldTile('Date of birth', f.dateOfBirth),
+                // A fresh cubit per result screen, so old verdicts never leak
+                // into the next scan.
+                BlocProvider(
+                  create: (context) =>
+                      VerificationCubit(context.read<VerificationService>()),
+                  child: VerificationPanel(fields: f),
+                ),
                 ExpansionTile(
                   title: Text('Raw lines (${state.document.lines.length})'),
                   children: [

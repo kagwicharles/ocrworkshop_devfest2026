@@ -16,18 +16,11 @@ class OcrLine extends Equatable {
 /// Everything the rest of the app knows about an OCR result.
 /// No ML Kit types leak out of the data layer.
 class OcrDocument extends Equatable {
-  const OcrDocument(
-      this.lines,
-      this.imageSize, {
-        this.engine = 'on-device',
-      });
+  const OcrDocument(this.lines, this.imageSize);
 
   final List<OcrLine> lines;
   final Size imageSize;
 
-  /// Which engine produced this: 'on-device' or 'server'.
-  final String engine;
-
   @override
-  List<Object?> get props => [lines, imageSize, engine];
+  List<Object?> get props => [lines, imageSize];
 }

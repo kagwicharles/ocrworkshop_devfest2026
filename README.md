@@ -13,7 +13,7 @@ Take a photo of an ID card. The phone reads it **on the device** (no internet ne
 - Turning raw text into fields (surname, given names, ID number, date of birth) with fuzzy label matching
 - Drawing boxes over the photo, and the coordinate-space bug that goes with it
 - A live test of whether image preprocessing helps or hurts
-- On-device vs server OCR, with the server only used when you allow it
+- Optional server **verification**: only the extracted text fields are sent, never the photo
 
 OCR reads text. It does **not** check that a document is genuine or that the person holding it is the owner.
 
@@ -101,7 +101,6 @@ Tap the **tune icon** in the top bar to flip these live:
 | Preprocess before OCR | Grayscale and contrast boost before reading. An experiment: measure it, do not assume it helps. |
 | Show recognized boxes | Draws a box around each recognized line. |
 | Break the overlay | Swaps the image width and height so the boxes land in the wrong place. Turn it off to fix. |
-| Allow server fallback | If the phone reads too little, upload the photo to your OCR server. Off by default: nothing leaves the device. |
 
 On the result screen, tap **Compare** to run the same photo through several pipelines and see lines found, fields found (out of 4) and time for each. Judge a pipeline on several photos, not one. The first scan after launch is slower because the model warms up.
 
@@ -112,26 +111,29 @@ flutter run --dart-define=PREPROCESS=true
 flutter run --dart-define=SWAP_SIZE=true
 ```
 
-## Optional: server OCR demo
+## Optional: server verification demo
 
-This shows the on-device vs server trade-off. Skip it if you only want the on-device demo.
+Reading the card always happens on the phone, and **the photo never leaves it**. A server can optionally *verify* what the phone read, for example by checking the fields against a registry. Only the four extracted text fields are sent, and only when you tap **Verify** on the result screen.
 
-1. Install the Tesseract program on your laptop, then:
+The included demo server uses a tiny fictional registry that matches the sample card. It needs only Python 3 (no extra packages).
+
+1. On your laptop:
    ```bash
-   pip install pillow pytesseract
-   python3 tools/ocr_server.py
+   python3 tools/verify_server.py
    ```
 2. Put the phone and laptop on the same Wi-Fi (or use your phone's hotspot) and find the laptop's IP address.
 3. For this demo only, open `android/app/src/main/AndroidManifest.xml` and add:
-    - `<uses-permission android:name="android.permission.INTERNET"/>` above `<application`
-    - `android:usesCleartextTraffic="true"` inside the `<application` tag
+   - `<uses-permission android:name="android.permission.INTERNET"/>` above `<application`
+   - `android:usesCleartextTraffic="true"` inside the `<application` tag
 4. Run:
    ```bash
-   flutter run --dart-define=OCR_SERVER_URL=http://<laptop-ip>:8000/ocr
+   flutter run --dart-define=VERIFY_SERVER_URL=http://<laptop-ip>:8000/verify
    ```
-5. In the demo controls, turn on **Allow server fallback**. Scan something the phone reads poorly and the result screen will say **Read on the server**.
+5. Scan the sample card, then tap **Verify**. You should see **Verified** with a tick for each field.
 
-Use a real HTTPS server and remove the cleartext setting for anything beyond a demo.
+Without `VERIFY_SERVER_URL` the app works fully on its own and the Verify button is disabled.
+
+For anything beyond a demo: use HTTPS, add authentication, remove the cleartext setting, and make sure you have a lawful basis to process the data (for example under the Kenya Data Protection Act, 2019).
 
 ## Run the tests
 
@@ -140,7 +142,7 @@ flutter analyze
 flutter test
 ```
 
-The tests cover the label matching, the BLoC (success, failure, cancel while processing), the box mapping, the comparison and the server fallback rules.
+The tests cover the label matching, the BLoC (success, failure, cancel while processing), the box mapping, the comparison and the verification flow.
 
 ## How it is organized
 
@@ -148,12 +150,12 @@ The tests cover the label matching, the BLoC (success, failure, cancel while pro
 lib/
   main.dart, app.dart, config.dart
   features/scan/
-    domain/        OcrDocument, OcrService (interface), IdParser (fuzzy labels), OcrComparator
-    data/          MlKitOcrService, HttpOcrService, ConfigurableOcrService, preprocess.dart
+    domain/        OcrDocument, OcrService, IdParser (fuzzy labels), OcrComparator, VerificationService
+    data/          MlKitOcrService, ConfigurableOcrService, HttpVerificationService, preprocess.dart
     presentation/  bloc/ (ScanBloc), settings/, view/ (ScanPage, ResultView), widgets/
 test/              unit tests mirroring lib/
 samples/           fictional ID card and messy label examples
-tools/             ocr_server.py (optional server demo)
+tools/             verify_server.py (optional verification demo)
 docs/              architecture, step-by-step build guide, troubleshooting
 ```
 
@@ -168,7 +170,8 @@ Rule of the design: ML Kit types never leave the `data/` folder, so the engine c
 | Build fails on `minSdk` | Raise `minSdk` as described in step 3. |
 | Boxes are in the wrong place | The "Break the overlay" switch may be on. Turn it off. If it is off, see `docs/troubleshooting.md` on image rotation. |
 | Fields show "Not found" | Open "Raw lines" on the result screen to see what was read, then add the misread label to `samples/messy_labels.txt` and a test. |
-| Server fallback never triggers | It needs `OCR_SERVER_URL`, the switch turned on, and a scan where the phone reads fewer than 4 lines. |
+| Verify button is greyed out | It needs `VERIFY_SERVER_URL` and an ID number found on the card. |
+| "Could not reach the verification server" | Check the laptop IP, that both devices share a network, that the server is running, and the manifest lines in the server demo. |
 | `./setup.sh` not found or not allowed | Run `bash setup.sh`, or use the manual steps in step 2. |
 
 More in `docs/troubleshooting.md`.
