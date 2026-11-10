@@ -11,7 +11,6 @@ import 'package:flutter/services.dart';
 class AppTheme {
   AppTheme._();
 
-  // Deep green. Change this one color to re-brand the whole app.
   static const Color seed = Color(0xFF064E3B);
 
   static ThemeData get light => _build(Brightness.light);
