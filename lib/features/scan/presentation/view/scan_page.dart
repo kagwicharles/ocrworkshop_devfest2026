@@ -46,11 +46,11 @@ class _ScanPageState extends State<ScanPage> {
     super.initState();
     if (widget.cameras.isEmpty) return;
     final camera = widget.cameras.firstWhere(
-          (c) => c.lensDirection == CameraLensDirection.back,
+      (c) => c.lensDirection == CameraLensDirection.back,
       orElse: () => widget.cameras.first,
     );
     final controller =
-    CameraController(camera, ResolutionPreset.high, enableAudio: false);
+        CameraController(camera, ResolutionPreset.high, enableAudio: false);
     _controller = controller;
     _initFuture = controller.initialize();
   }
@@ -108,29 +108,31 @@ class _ScanPageState extends State<ScanPage> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<ScanBloc, ScanState>(
-      builder: (context, state) => switch (state) {
-        final ScanSuccess s => Scaffold(
-          appBar: AppBar(title: const Text('Scan result')),
-          body: ResultView(
-            state: s,
-            onScanAgain: () =>
-                context.read<ScanBloc>().add(const ScanCancelled()),
-            onCompare: () => showCompareSheet(context, s.imagePath),
-          ),
-        ),
-        final ScanFailure f => Scaffold(
-          appBar: AppBar(title: const Text('Scan ID')),
-          body: _FailureView(
-            message: f.message,
-            onRetry: () =>
-                context.read<ScanBloc>().add(const ScanCancelled()),
-          ),
-        ),
-        ScanIdle() => _buildCameraScaffold(context, processing: false),
-        ScanProcessing() => _buildCameraScaffold(context, processing: true),
-      },
-    );
+    return PopScope(
+        canPop: false,
+        child: BlocBuilder<ScanBloc, ScanState>(
+          builder: (context, state) => switch (state) {
+            final ScanSuccess s => Scaffold(
+                appBar: AppBar(title: const Text('Scan result')),
+                body: ResultView(
+                  state: s,
+                  onScanAgain: () =>
+                      context.read<ScanBloc>().add(const ScanCancelled()),
+                  onCompare: () => showCompareSheet(context, s.imagePath),
+                ),
+              ),
+            final ScanFailure f => Scaffold(
+                appBar: AppBar(title: const Text('Scan ID')),
+                body: _FailureView(
+                  message: f.message,
+                  onRetry: () =>
+                      context.read<ScanBloc>().add(const ScanCancelled()),
+                ),
+              ),
+            ScanIdle() => _buildCameraScaffold(context, processing: false),
+            ScanProcessing() => _buildCameraScaffold(context, processing: true),
+          },
+        ));
   }
 
   Widget _buildCameraScaffold(BuildContext context,
@@ -176,7 +178,7 @@ class _ScanPageState extends State<ScanPage> {
           return const _CenteredMessage(
             icon: Icons.videocam_off_outlined,
             text:
-            'Camera unavailable. Check the camera permission and try again.',
+                'Camera unavailable. Check the camera permission and try again.',
           );
         }
         if (snapshot.connectionState != ConnectionState.done) {
@@ -215,10 +217,10 @@ class _ScanPageState extends State<ScanPage> {
                         child: processing
                             ? const _ProcessingPanel(key: ValueKey('busy'))
                             : _CaptureControls(
-                          key: const ValueKey('ready'),
-                          onCapture: _capture,
-                          onGallery: _pickFromGallery,
-                        ),
+                                key: const ValueKey('ready'),
+                                onCapture: _capture,
+                                onGallery: _pickFromGallery,
+                              ),
                       ),
                     ),
                   ),
@@ -271,7 +273,8 @@ class _GuidePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final hole = Path()
-      ..addRRect(RRect.fromRectAndRadius(frame, const Radius.circular(_radius)));
+      ..addRRect(
+          RRect.fromRectAndRadius(frame, const Radius.circular(_radius)));
     final dim = Path.combine(
       PathOperation.difference,
       Path()..addRect(Offset.zero & size),
@@ -291,22 +294,22 @@ class _GuidePainter extends CustomPainter {
     const radius = Radius.circular(r);
 
     final corners = Path()
-    // top-left
+      // top-left
       ..moveTo(l, t + r + a)
       ..lineTo(l, t + r)
       ..arcToPoint(Offset(l + r, t), radius: radius)
       ..lineTo(l + r + a, t)
-    // top-right
+      // top-right
       ..moveTo(rt - r - a, t)
       ..lineTo(rt - r, t)
       ..arcToPoint(Offset(rt, t + r), radius: radius)
       ..lineTo(rt, t + r + a)
-    // bottom-right
+      // bottom-right
       ..moveTo(rt, b - r - a)
       ..lineTo(rt, b - r)
       ..arcToPoint(Offset(rt - r, b), radius: radius)
       ..lineTo(rt - r - a, b)
-    // bottom-left
+      // bottom-left
       ..moveTo(l + r + a, b)
       ..lineTo(l + r, b)
       ..arcToPoint(Offset(l, b - r), radius: radius)
