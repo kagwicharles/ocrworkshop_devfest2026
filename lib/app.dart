@@ -1,6 +1,7 @@
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:ocr_workshop/theme/app_theme.dart';
 
 import 'config.dart';
 import 'features/scan/data/configurable_ocr_service.dart';
@@ -70,7 +71,9 @@ class App extends StatelessWidget {
         child: MaterialApp(
           title: 'ID Scanner',
           debugShowCheckedModeBanner: false,
-          theme: ThemeData(colorSchemeSeed: Colors.teal, useMaterial3: true),
+          theme: AppTheme.light,
+          darkTheme: AppTheme.dark,
+          themeMode: ThemeMode.system,
           home: ScanPage(cameras: cameras),
         ),
       ),

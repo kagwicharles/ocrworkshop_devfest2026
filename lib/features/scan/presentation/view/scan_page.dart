@@ -13,17 +13,6 @@ import 'result_view.dart';
 /// ID-1 card ratio (credit card / most national ID cards): 85.6 x 54 mm.
 const double _cardAspect = 1.586;
 
-/// Where the card should sit on screen. Shared by the painter and the hint text.
-Rect _frameRect(Size size) {
-  final width = size.width * 0.88;
-  final height = width / _cardAspect;
-  return Rect.fromCenter(
-    center: Offset(size.width / 2, size.height * 0.42),
-    width: width,
-    height: height,
-  );
-}
-
 class ScanPage extends StatefulWidget {
   const ScanPage({super.key, required this.cameras});
 
@@ -38,19 +27,20 @@ class _ScanPageState extends State<ScanPage> {
   Future<void>? _initFuture;
   bool _torchOn = false;
 
-  Size _viewSize = Size.zero;
-  Rect _frame = Rect.zero;
+  /// Size of the camera viewport on screen. The viewport IS the card frame,
+  /// so this is also the area to crop the captured photo to.
+  Size _viewportSize = Size.zero;
 
   @override
   void initState() {
     super.initState();
     if (widget.cameras.isEmpty) return;
     final camera = widget.cameras.firstWhere(
-      (c) => c.lensDirection == CameraLensDirection.back,
+          (c) => c.lensDirection == CameraLensDirection.back,
       orElse: () => widget.cameras.first,
     );
     final controller =
-        CameraController(camera, ResolutionPreset.high, enableAudio: false);
+    CameraController(camera, ResolutionPreset.high, enableAudio: false);
     _controller = controller;
     _initFuture = controller.initialize();
   }
@@ -73,10 +63,12 @@ class _ScanPageState extends State<ScanPage> {
     final messenger = ScaffoldMessenger.of(context);
     try {
       final file = await controller.takePicture();
+      // The preview fills the viewport edge to edge, so the frame to crop is
+      // the whole viewport.
       final croppedPath = await cropToFrame(
         path: file.path,
-        viewSize: _viewSize,
-        frame: _frame,
+        viewSize: _viewportSize,
+        frame: Offset.zero & _viewportSize,
       );
       bloc.add(ScanCaptured(croppedPath));
     } on CameraException {
@@ -109,41 +101,37 @@ class _ScanPageState extends State<ScanPage> {
   @override
   Widget build(BuildContext context) {
     return PopScope(
-        canPop: false,
-        child: BlocBuilder<ScanBloc, ScanState>(
-          builder: (context, state) => switch (state) {
-            final ScanSuccess s => Scaffold(
-                appBar: AppBar(title: const Text('Scan result')),
-                body: ResultView(
-                  state: s,
-                  onScanAgain: () =>
-                      context.read<ScanBloc>().add(const ScanCancelled()),
-                  onCompare: () => showCompareSheet(context, s.imagePath),
-                ),
-              ),
-            final ScanFailure f => Scaffold(
-                appBar: AppBar(title: const Text('Scan ID')),
-                body: _FailureView(
-                  message: f.message,
-                  onRetry: () =>
-                      context.read<ScanBloc>().add(const ScanCancelled()),
-                ),
-              ),
-            ScanIdle() => _buildCameraScaffold(context, processing: false),
-            ScanProcessing() => _buildCameraScaffold(context, processing: true),
-          },
-        ));
+      canPop: false,
+      child: BlocBuilder<ScanBloc, ScanState>(
+        builder: (context, state) => switch (state) {
+          final ScanSuccess s => Scaffold(
+            appBar: AppBar(title: const Text('Scan result')),
+            body: ResultView(
+              state: s,
+              onScanAgain: () =>
+                  context.read<ScanBloc>().add(const ScanCancelled()),
+              onCompare: () => showCompareSheet(context, s.imagePath),
+            ),
+          ),
+          final ScanFailure f => Scaffold(
+            appBar: AppBar(title: const Text('Scan ID')),
+            body: _FailureView(
+              message: f.message,
+              onRetry: () =>
+                  context.read<ScanBloc>().add(const ScanCancelled()),
+            ),
+          ),
+          ScanIdle() => _buildCameraScaffold(context, processing: false),
+          ScanProcessing() => _buildCameraScaffold(context, processing: true),
+        },
+      ),
+    );
   }
 
   Widget _buildCameraScaffold(BuildContext context,
       {required bool processing}) {
     return Scaffold(
-      backgroundColor: Colors.black,
-      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        foregroundColor: Colors.white,
-        elevation: 0,
         title: const Text('Scan ID'),
         actions: [
           IconButton(
@@ -159,84 +147,108 @@ class _ScanPageState extends State<ScanPage> {
             ),
         ],
       ),
-      body: _buildCamera(context, processing: processing),
+      body: SafeArea(
+        top: false,
+        child: Column(
+          children: [
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: _HintText(processing: processing),
+            ),
+            const SizedBox(height: 12),
+
+            // The camera, restricted to the card-shaped frame.
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: AspectRatio(
+                aspectRatio: _cardAspect,
+                child: _buildViewport(context, processing: processing),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // ---- FREE SPACE: put your own content in _ExtraSpace below. ----
+            const Expanded(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.symmetric(horizontal: 16),
+                child: _ExtraSpace(),
+              ),
+            ),
+
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 200),
+                child: processing
+                    ? const _ProcessingPanel(key: ValueKey('busy'))
+                    : _CaptureControls(
+                  key: const ValueKey('ready'),
+                  onCapture: _capture,
+                  onGallery: _pickFromGallery,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
-  Widget _buildCamera(BuildContext context, {required bool processing}) {
+  Widget _buildViewport(BuildContext context, {required bool processing}) {
     final controller = _controller;
+    final accent = Theme.of(context).colorScheme.primaryContainer;
+
+    Widget content;
     if (controller == null) {
-      return const _CenteredMessage(
+      content = const _CenteredMessage(
         icon: Icons.no_photography_outlined,
         text: 'No camera found on this device.',
       );
-    }
-    return FutureBuilder<void>(
-      future: _initFuture,
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return const _CenteredMessage(
-            icon: Icons.videocam_off_outlined,
-            text:
-                'Camera unavailable. Check the camera permission and try again.',
-          );
-        }
-        if (snapshot.connectionState != ConnectionState.done) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            final size = constraints.biggest;
-            final frame = _frameRect(size);
-            final accent = Theme.of(context).colorScheme.primaryContainer;
-            _viewSize = size;
-            _frame = frame;
-            return Stack(
-              fit: StackFit.expand,
-              children: [
-                _FullScreenPreview(controller: controller),
-                CustomPaint(
-                  painter: _GuidePainter(
-                    frame: frame,
-                    color: processing ? accent : Colors.white,
-                  ),
-                ),
-                Positioned(
-                  left: 24,
-                  right: 24,
-                  top: frame.top - 76,
-                  child: _HintText(processing: processing),
-                ),
-                Align(
-                  alignment: Alignment.bottomCenter,
-                  child: SafeArea(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 200),
-                        child: processing
-                            ? const _ProcessingPanel(key: ValueKey('busy'))
-                            : _CaptureControls(
-                                key: const ValueKey('ready'),
-                                onCapture: _capture,
-                                onGallery: _pickFromGallery,
-                              ),
-                      ),
+    } else {
+      content = FutureBuilder<void>(
+        future: _initFuture,
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return const _CenteredMessage(
+              icon: Icons.videocam_off_outlined,
+              text: 'Camera unavailable. Check the camera permission.',
+            );
+          }
+          if (snapshot.connectionState != ConnectionState.done) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              _viewportSize = constraints.biggest;
+              return Stack(
+                fit: StackFit.expand,
+                children: [
+                  _CoverPreview(controller: controller),
+                  if (processing) const ColoredBox(color: Colors.black45),
+                  CustomPaint(
+                    painter: _BracketsPainter(
+                      color: processing ? accent : Colors.white,
                     ),
                   ),
-                ),
-              ],
-            );
-          },
-        );
-      },
+                ],
+              );
+            },
+          );
+        },
+      );
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: ColoredBox(color: Colors.black, child: content),
     );
   }
 }
 
-/// Camera preview scaled to cover the whole screen (no letterboxing).
-class _FullScreenPreview extends StatelessWidget {
-  const _FullScreenPreview({required this.controller});
+/// Camera preview scaled to cover its box (no letterboxing, centre crop).
+class _CoverPreview extends StatelessWidget {
+  const _CoverPreview({required this.controller});
 
   final CameraController controller;
 
@@ -260,11 +272,10 @@ class _FullScreenPreview extends StatelessWidget {
   }
 }
 
-/// Dims everything outside the card frame and draws rounded corner brackets.
-class _GuidePainter extends CustomPainter {
-  _GuidePainter({required this.frame, required this.color});
+/// Rounded corner brackets drawn around the edge of the viewport.
+class _BracketsPainter extends CustomPainter {
+  _BracketsPainter({required this.color});
 
-  final Rect frame;
   final Color color;
 
   static const double _radius = 16;
@@ -272,44 +283,35 @@ class _GuidePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final hole = Path()
-      ..addRRect(
-          RRect.fromRectAndRadius(frame, const Radius.circular(_radius)));
-    final dim = Path.combine(
-      PathOperation.difference,
-      Path()..addRect(Offset.zero & size),
-      hole,
-    );
-    canvas.drawPath(dim, Paint()..color = Colors.black.withAlpha(140));
-
     final stroke = Paint()
       ..color = color
       ..style = PaintingStyle.stroke
       ..strokeWidth = 4
       ..strokeCap = StrokeCap.round;
 
+    final frame = (Offset.zero & size).deflate(2);
     const r = _radius;
     const a = _arm;
     final l = frame.left, t = frame.top, rt = frame.right, b = frame.bottom;
     const radius = Radius.circular(r);
 
     final corners = Path()
-      // top-left
+    // top-left
       ..moveTo(l, t + r + a)
       ..lineTo(l, t + r)
       ..arcToPoint(Offset(l + r, t), radius: radius)
       ..lineTo(l + r + a, t)
-      // top-right
+    // top-right
       ..moveTo(rt - r - a, t)
       ..lineTo(rt - r, t)
       ..arcToPoint(Offset(rt, t + r), radius: radius)
       ..lineTo(rt, t + r + a)
-      // bottom-right
+    // bottom-right
       ..moveTo(rt, b - r - a)
       ..lineTo(rt, b - r)
       ..arcToPoint(Offset(rt - r, b), radius: radius)
       ..lineTo(rt - r - a, b)
-      // bottom-left
+    // bottom-left
       ..moveTo(l + r + a, b)
       ..lineTo(l + r, b)
       ..arcToPoint(Offset(l, b - r), radius: radius)
@@ -318,8 +320,7 @@ class _GuidePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _GuidePainter old) =>
-      old.frame != frame || old.color != color;
+  bool shouldRepaint(covariant _BracketsPainter old) => old.color != color;
 }
 
 class _HintText extends StatelessWidget {
@@ -329,17 +330,15 @@ class _HintText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
+    final theme = Theme.of(context);
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
           processing ? 'Hold still' : 'Fit your ID inside the frame',
           textAlign: TextAlign.center,
-          style: textTheme.titleMedium?.copyWith(
-            color: Colors.white,
-            fontWeight: FontWeight.w600,
-          ),
+          style: theme.textTheme.titleMedium
+              ?.copyWith(fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 4),
         Text(
@@ -347,9 +346,73 @@ class _HintText extends StatelessWidget {
               ? 'Reading the text on your phone'
               : 'Good light, no glare, text sharp',
           textAlign: TextAlign.center,
-          style: textTheme.bodyMedium?.copyWith(color: Colors.white70),
+          style: theme.textTheme.bodyMedium
+              ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
         ),
       ],
+    );
+  }
+}
+
+/// THE FREE SPACE under the camera. Replace the body with whatever you like:
+/// live field preview, a checklist, instructions, a progress stepper...
+/// It scrolls, so it can be taller than the space available.
+class _ExtraSpace extends StatelessWidget {
+  const _ExtraSpace();
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('For a clean read', style: textTheme.titleSmall),
+            const SizedBox(height: 8),
+            const _Tip(Icons.light_mode_outlined, 'Good, even light'),
+            const _Tip(Icons.flare, 'No glare or reflections'),
+            const _Tip(Icons.crop_free, 'All four corners inside the frame'),
+            const Divider(height: 24),
+            Row(
+              children: [
+                Icon(Icons.lock_outline, size: 18, color: scheme.primary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Your photo is read on this phone and never uploaded.',
+                    style: textTheme.bodySmall,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Tip extends StatelessWidget {
+  const _Tip(this.icon, this.text);
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        children: [
+          Icon(icon, size: 18),
+          const SizedBox(width: 8),
+          Expanded(child: Text(text)),
+        ],
+      ),
     );
   }
 }
@@ -366,6 +429,7 @@ class _CaptureControls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final color = Theme.of(context).colorScheme.primary;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
@@ -385,13 +449,10 @@ class _CaptureControls extends StatelessWidget {
               padding: const EdgeInsets.all(5),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 4),
+                border: Border.all(color: color, width: 4),
               ),
-              child: const DecoratedBox(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white,
-                ),
+              child: DecoratedBox(
+                decoration: BoxDecoration(shape: BoxShape.circle, color: color),
               ),
             ),
           ),
@@ -411,8 +472,7 @@ class _ProcessingPanel extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     return Material(
-      color: scheme.surface,
-      elevation: 4,
+      color: scheme.surfaceContainerHighest,
       borderRadius: BorderRadius.circular(20),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 14, 12, 14),
@@ -450,6 +510,7 @@ class _ProcessingPanel extends StatelessWidget {
   }
 }
 
+/// Shown inside the dark camera viewport when there is no usable camera.
 class _CenteredMessage extends StatelessWidget {
   const _CenteredMessage({required this.icon, required this.text});
 
@@ -460,12 +521,12 @@ class _CenteredMessage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.all(16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 48, color: Colors.white70),
-            const SizedBox(height: 16),
+            Icon(icon, size: 36, color: Colors.white70),
+            const SizedBox(height: 8),
             Text(
               text,
               textAlign: TextAlign.center,
