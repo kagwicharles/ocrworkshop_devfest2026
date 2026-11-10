@@ -1,0 +1,14 @@
+# Label strings OCR really produces. Add yours and extend id_parser_test.dart.
+SURNAME
+SURNAM E
+SURNAMF
+5URNAME
+SURNAME:
+GIVEN NAMES
+GIVEN NAME
+G1VEN NAMES
+ID NUMBER
+ID N0
+DATE OF BIRTH
+D.O.B
+DOB
