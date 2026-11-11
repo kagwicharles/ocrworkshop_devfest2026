@@ -46,17 +46,18 @@ const givenNameLabels = [
   'OTHER NAMES',
 ];
 const idNumberLabels = [
-  'ID NUMBER',
+  'ID NUMBER:',
   'ID NO',
   'IDENTITY NUMBER',
   'DOCUMENT NUMBER',
   'NATIONAL ID',
+  'DNUMBER'
 ];
 const dateOfBirthLabels = ['DATE OF BIRTH', 'DOB', 'BIRTH DATE'];
 const districtOfBirthLabels = ['DISTRICT OF BIRTH', 'BIRTH DISTRICT'];
 
-/// Printed on the card but not extracted. Listed only so they are never
-/// mistaken for the VALUE of a neighbouring field.
+final idNumberPattern = RegExp(r'^\d{7,8}$');
+
 const _otherCardLabels = [
   'SEX',
   'SERIAL NUMBER',
@@ -77,8 +78,42 @@ const _allLabels = [
 bool _looksLikeLabel(String text) =>
     _allLabels.any((l) => similarity(text, l) >= 0.8);
 
-/// Bilingual labels such as "DATE OF BIRTH / TAREHE YA KUZALIWA":
-/// try each part on its own.
+final _regexCache = <String, RegExp>{};
+RegExp _labelRegex(String label) => _regexCache.putIfAbsent(label, () {
+  final words = label.trim().split(RegExp(r'\s+')).map(RegExp.escape);
+  return RegExp(
+    '(?<![A-Za-z0-9])${words.join(r'\s*')}(?![A-Za-z])',
+    caseSensitive: false,
+  );
+});
+
+String _cutAtNextLabel(String rest) {
+  var cut = rest.length;
+  for (final l in _allLabels) {
+    final m = _labelRegex(l).firstMatch(rest);
+    if (m != null && m.start < cut) cut = m.start;
+  }
+  return rest.substring(0, cut);
+}
+
+String? _sameLineValue(
+    String text,
+    List<String> labels,
+    bool Function(String) ok,
+    ) {
+  for (final label in labels) {
+    for (final m in _labelRegex(label).allMatches(text)) {
+      final rest =
+      text.substring(m.end).replaceFirst(RegExp(r'^[\s:.\-]+'), '');
+      // "SURNAME / JINA LA UKOO": a bilingual label, not a value.
+      if (rest.isEmpty || rest.startsWith('/') || rest.startsWith('|')) continue;
+      final value = _cutAtNextLabel(rest).trim();
+      if (ok(value)) return value;
+    }
+  }
+  return null;
+}
+
 Iterable<String> _headParts(String head) => head
     .split(RegExp(r'[/|]'))
     .map((p) => p.trim())
@@ -93,46 +128,29 @@ double _verticalOverlap(Rect a, Rect b) {
 int _digitCount(String v) => RegExp(r'\d').allMatches(v).length;
 
 bool _looksLikeName(String v) => _digitCount(v) == 0;
-
-/// Where to look first for a value, relative to its label.
-///  - [below]: label above the value (most fields on the card)
-///  - [right]: label beside the value, on the same row (the ID number)
 enum Placement { below, right }
 
-/// Finds the line that looks like one of [labels], then returns its value from:
-///  1. text after a colon, or after the label on the same line;
-///  2. the nearest candidates below and to the right, in the order set by [prefer].
-/// A candidate is skipped if it is another label or fails [accept], so a wrong
-/// neighbouring line is never taken as the value.
 String? valueFor(
     OcrDocument doc,
     List<String> labels, {
       double threshold = 0.8,
       Placement prefer = Placement.below,
       bool Function(String value)? accept,
+      RegExp? fallback,
     }) {
   bool ok(String v) => v.isNotEmpty && (accept?.call(v) ?? true);
 
   for (final line in doc.lines) {
-    // "ID NUMBER 12345678" on one line, no colon.
-    final upper = line.text.toUpperCase();
-    for (final l in labels) {
-      if (upper.startsWith('$l ')) {
-        final rest = line.text.substring(l.length).trim();
-        if (ok(rest)) return rest;
-      }
-    }
+    final value = _sameLineValue(line.text, labels, ok);
+    if (value != null) return value;
+  }
 
+  for (final line in doc.lines) {
     final colon = line.text.indexOf(':');
     final head = colon == -1 ? line.text : line.text.substring(0, colon);
     final matches = _headParts(head)
         .any((part) => labels.any((l) => similarity(part, l) >= threshold));
     if (!matches) continue;
-
-    if (colon != -1) {
-      final inline = line.text.substring(colon + 1).trim();
-      if (ok(inline)) return inline;
-    }
 
     final maxGap = line.box.height * 3;
     final below = doc.lines
@@ -162,6 +180,14 @@ String? valueFor(
         : [...below, ...right];
     if (ordered.isNotEmpty) return ordered.first.text.trim();
   }
+
+  if (fallback != null) {
+    final hits = doc.lines
+        .map((l) => l.text.replaceAll(RegExp(r'\s'), ''))
+        .where(fallback.hasMatch)
+        .toSet();
+    if (hits.length == 1) return hits.first;
+  }
   return null;
 }
 
@@ -177,6 +203,7 @@ class IdParser {
       idNumberLabels,
       prefer: Placement.right,
       accept: (v) => _digitCount(v) >= 6,
+      fallback: idNumberPattern,
     ),
     dateOfBirth: valueFor(
       doc,
