@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../domain/verification_service.dart';
 import '../bloc/scan_state.dart';
 import '../settings/demo_settings_cubit.dart';
-import '../verification/verification_cubit.dart';
 import '../widgets/box_overlay.dart';
-import '../widgets/verification_panel.dart';
 
 class ResultView extends StatelessWidget {
   const ResultView({
