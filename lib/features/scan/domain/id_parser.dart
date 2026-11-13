@@ -4,7 +4,6 @@ import 'dart:ui';
 import 'id_fields.dart';
 import 'ocr_document.dart';
 
-/// Classic edit distance (insert, delete, substitute).
 int levenshtein(String a, String b) {
   if (a == b) return 0;
   if (a.isEmpty) return b.length;
@@ -28,7 +27,6 @@ int levenshtein(String a, String b) {
 String _normalize(String s) =>
     s.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
 
-/// 1.0 = identical after normalizing, 0.0 = nothing in common.
 double similarity(String a, String b) {
   final x = _normalize(a);
   final y = _normalize(b);
@@ -36,7 +34,6 @@ double similarity(String a, String b) {
   return longest == 0 ? 1 : 1 - levenshtein(x, y) / longest;
 }
 
-// Label synonyms per field. Add the labels YOUR card uses here.
 const surnameLabels = ['FULL NAMES', 'SURNAME', 'LAST NAME', 'FAMILY NAME'];
 const givenNameLabels = [
   'FULL NAMES',
@@ -197,7 +194,6 @@ class IdParser {
   IdFields parse(OcrDocument doc) => IdFields(
     surname: valueFor(doc, surnameLabels, accept: _looksLikeName),
     givenNames: valueFor(doc, givenNameLabels, accept: _looksLikeName),
-    // The ID number's label sits beside its value, so look right first.
     idNumber: valueFor(
       doc,
       idNumberLabels,

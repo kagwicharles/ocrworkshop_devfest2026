@@ -20,8 +20,6 @@ class ScanBloc extends Bloc<ScanEvent, ScanState> {
   final OcrService _ocr;
   final IdParser _parser;
 
-  /// ML Kit cannot be cancelled mid-flight, so "cancel" means
-  /// "ignore the late result". Each scan gets an id; only the latest wins.
   int _requestId = 0;
 
   Future<void> _onCaptured(ScanCaptured event, Emitter<ScanState> emit) async {

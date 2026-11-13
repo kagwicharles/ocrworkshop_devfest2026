@@ -36,7 +36,6 @@ class VerificationFailed extends VerificationState {
   List<Object?> get props => [message];
 }
 
-/// Verification is explicit: nothing is sent until the user taps Verify.
 class VerificationCubit extends Cubit<VerificationState> {
   VerificationCubit(this._service) : super(const VerificationIdle());
 

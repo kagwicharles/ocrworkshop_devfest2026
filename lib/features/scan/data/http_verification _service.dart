@@ -5,13 +5,6 @@ import '../domain/id_fields.dart';
 import '../domain/verification_result.dart';
 import '../domain/verification_service.dart';
 
-/// Sends the on-device OCR fields to YOUR backend, which compares them with
-/// the IPRS record. The app never talks to IPRS and holds no IPRS credentials.
-///
-/// Request : {"surname": "...", "givenNames": "...", "idNumber": "...", "dateOfBirth": "..."}
-/// Response: {"verified": true, "message": "...",
-///            "fields": {"surname": {"match": true, "score": 0.97}, ...}}
-/// See tools/iprs_mock_server.py for a reference implementation.
 class HttpVerificationService implements VerificationService {
   HttpVerificationService(this.endpoint,
       {this.timeout = const Duration(seconds: 10)});
@@ -57,7 +50,6 @@ class HttpVerificationService implements VerificationService {
   }
 }
 
-/// Used when no verification server is configured.
 class DisabledVerificationService implements VerificationService {
   const DisabledVerificationService();
 

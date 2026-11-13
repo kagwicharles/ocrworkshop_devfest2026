@@ -7,7 +7,6 @@ import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart
 import '../domain/ocr_document.dart';
 import '../domain/ocr_service.dart';
 
-/// On-device OCR. The Latin model runs locally: no network needed.
 class MlKitOcrService implements OcrService {
   MlKitOcrService({TextRecognizer? recognizer})
       : _recognizer =

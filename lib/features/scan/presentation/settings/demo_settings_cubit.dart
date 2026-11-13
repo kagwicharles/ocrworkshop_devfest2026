@@ -8,13 +8,10 @@ class DemoSettings extends Equatable {
     this.showBoxes = true,
   });
 
-  /// Grayscale + contrast before OCR (the "made it worse" experiment).
   final bool preprocess;
 
-  /// Swaps image width/height in the overlay: shows the coordinate bug.
   final bool swapSize;
 
-  /// Draw the recognized boxes over the photo.
   final bool showBoxes;
 
   DemoSettings copyWith({bool? preprocess, bool? swapSize, bool? showBoxes}) =>
@@ -28,8 +25,6 @@ class DemoSettings extends Equatable {
   List<Object?> get props => [preprocess, swapSize, showBoxes];
 }
 
-/// Runtime switches for the live demo. The --dart-define flags still work
-/// as the starting values.
 class DemoSettingsCubit extends Cubit<DemoSettings> {
   DemoSettingsCubit()
       : super(const DemoSettings(

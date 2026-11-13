@@ -10,7 +10,6 @@ import '../widgets/compare_sheet.dart';
 import '../widgets/demo_controls_sheet.dart';
 import 'result_view.dart';
 
-/// ID-1 card ratio (credit card / most national ID cards): 85.6 x 54 mm.
 const double _cardAspect = 1.586;
 
 class ScanPage extends StatefulWidget {
@@ -27,8 +26,6 @@ class _ScanPageState extends State<ScanPage> {
   Future<void>? _initFuture;
   bool _torchOn = false;
 
-  /// Size of the camera viewport on screen. The viewport IS the card frame,
-  /// so this is also the area to crop the captured photo to.
   Size _viewportSize = Size.zero;
 
   @override
@@ -63,8 +60,7 @@ class _ScanPageState extends State<ScanPage> {
     final messenger = ScaffoldMessenger.of(context);
     try {
       final file = await controller.takePicture();
-      // The preview fills the viewport edge to edge, so the frame to crop is
-      // the whole viewport.
+
       final croppedPath = await cropToFrame(
         path: file.path,
         viewSize: _viewportSize,
@@ -78,7 +74,6 @@ class _ScanPageState extends State<ScanPage> {
     }
   }
 
-  /// Fallback when the camera is awkward on stage: pick a photo instead.
   Future<void> _pickFromGallery() async {
     final bloc = context.read<ScanBloc>();
     final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
@@ -105,7 +100,7 @@ class _ScanPageState extends State<ScanPage> {
       child: BlocBuilder<ScanBloc, ScanState>(
         builder: (context, state) => switch (state) {
           final ScanSuccess s => Scaffold(
-            appBar: AppBar(title: const Text('Scan result')),
+            appBar: AppBar(title: const Text('KYC App')),
             body: ResultView(
               state: s,
               onScanAgain: () =>
@@ -114,7 +109,7 @@ class _ScanPageState extends State<ScanPage> {
             ),
           ),
           final ScanFailure f => Scaffold(
-            appBar: AppBar(title: const Text('Scan ID')),
+            appBar: AppBar(title: const Text('KYC App')),
             body: _FailureView(
               message: f.message,
               onRetry: () =>
@@ -132,13 +127,8 @@ class _ScanPageState extends State<ScanPage> {
       {required bool processing}) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Scan ID'),
+        title: const Text('KYC'),
         actions: [
-          IconButton(
-            tooltip: 'Demo controls',
-            onPressed: () => showDemoControls(context),
-            icon: const Icon(Icons.tune),
-          ),
           if (_controller != null)
             IconButton(
               tooltip: _torchOn ? 'Turn torch off' : 'Turn torch on',
@@ -150,6 +140,7 @@ class _ScanPageState extends State<ScanPage> {
       body: SafeArea(
         top: false,
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const SizedBox(height: 12),
             Padding(
@@ -157,25 +148,14 @@ class _ScanPageState extends State<ScanPage> {
               child: _HintText(processing: processing),
             ),
             const SizedBox(height: 12),
-
-            // The camera, restricted to the card-shaped frame.
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: AspectRatio(
-                aspectRatio: _cardAspect,
-                child: _buildViewport(context, processing: processing),
+           Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: AspectRatio(
+                  aspectRatio: _cardAspect,
+                  child: _buildViewport(context, processing: processing),
+                ),
               ),
-            ),
             const SizedBox(height: 16),
-
-            // ---- FREE SPACE: put your own content in _ExtraSpace below. ----
-            const Expanded(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.symmetric(horizontal: 16),
-                child: _ExtraSpace(),
-              ),
-            ),
-
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
               child: AnimatedSwitcher(
@@ -332,7 +312,8 @@ class _HintText extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Column(
-      mainAxisSize: MainAxisSize.min,
+      mainAxisSize: MainAxisSize.max,
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Text(
           processing ? 'Hold still' : 'Fit your ID inside the frame',
@@ -350,69 +331,6 @@ class _HintText extends StatelessWidget {
               ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
         ),
       ],
-    );
-  }
-}
-
-/// THE FREE SPACE under the camera. Replace the body with whatever you like:
-/// live field preview, a checklist, instructions, a progress stepper...
-/// It scrolls, so it can be taller than the space available.
-class _ExtraSpace extends StatelessWidget {
-  const _ExtraSpace();
-
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-    final scheme = Theme.of(context).colorScheme;
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('For a clean read', style: textTheme.titleSmall),
-            const SizedBox(height: 8),
-            const _Tip(Icons.light_mode_outlined, 'Good, even light'),
-            const _Tip(Icons.flare, 'No glare or reflections'),
-            const _Tip(Icons.crop_free, 'All four corners inside the frame'),
-            const Divider(height: 24),
-            Row(
-              children: [
-                Icon(Icons.lock_outline, size: 18, color: scheme.primary),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Your photo is read on this phone and never uploaded.',
-                    style: textTheme.bodySmall,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _Tip extends StatelessWidget {
-  const _Tip(this.icon, this.text);
-
-  final IconData icon;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
-      child: Row(
-        children: [
-          Icon(icon, size: 18),
-          const SizedBox(width: 8),
-          Expanded(child: Text(text)),
-        ],
-      ),
     );
   }
 }

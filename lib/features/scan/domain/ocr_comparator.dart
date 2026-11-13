@@ -28,17 +28,13 @@ class VariantResult extends Equatable {
   List<Object?> get props => [name, lineCount, fieldsFound, elapsed, failed];
 }
 
-/// Runs the same photo through several OCR variants so you can MEASURE
-/// instead of guessing ("measure before you preprocess").
 class OcrComparator {
   OcrComparator({required this.variants, required this.parser});
 
-  /// Insertion order is the display order.
   final Map<String, OcrService> variants;
   final IdParser parser;
 
   Future<List<VariantResult>> compare(String imagePath) async {
-    // Untimed warm-up so the first variant does not pay the model start-up cost.
     if (variants.isNotEmpty) {
       try {
         await variants.values.first.recognize(imagePath);

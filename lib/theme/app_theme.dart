@@ -72,10 +72,7 @@ class AppTheme {
         statusBarBrightness: Brightness.dark, // iOS
       ),
 
-      // Optional: rounded bottom corners
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(16)),
-      ),
+
     );
   }
 }

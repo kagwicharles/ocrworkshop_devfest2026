@@ -6,8 +6,7 @@ import 'package:flutter/material.dart';
 
 import '../../domain/ocr_document.dart';
 
-/// Maps a rect from IMAGE pixel space to WIDGET space, assuming the image is
-/// drawn with BoxFit.contain (centered, uniformly scaled).
+
 Rect mapRect(Rect r, Size image, Size widget) {
   final scale = math.min(widget.width / image.width, widget.height / image.height);
   final dx = (widget.width - image.width * scale) / 2;

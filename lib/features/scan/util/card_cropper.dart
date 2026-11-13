@@ -12,8 +12,6 @@ class _CropArgs {
   final Rect frame;
 }
 
-/// Crops a captured photo to the guide frame shown over a BoxFit.cover preview.
-/// Returns the path of the cropped JPEG (or the original path if decoding fails).
 Future<String> cropToFrame({
   required String path,
   required Size viewSize,

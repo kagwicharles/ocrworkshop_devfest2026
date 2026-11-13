@@ -58,13 +58,7 @@ class ResultView extends StatelessWidget {
                 _FieldTile('District of Birth', f.districtOfBirth),
                 _FieldTile('ID number', f.idNumber),
                 _FieldTile('Date of birth', f.dateOfBirth),
-                // A fresh cubit per result screen, so old verdicts never leak
-                // into the next scan.
-                BlocProvider(
-                  create: (context) =>
-                      VerificationCubit(context.read<VerificationService>()),
-                  child: VerificationPanel(fields: f),
-                ),
+
                 ExpansionTile(
                   title: Text('Raw lines (${state.document.lines.length})'),
                   children: [
@@ -82,8 +76,8 @@ class ResultView extends StatelessWidget {
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: onCompare,
-                    icon: const Icon(Icons.compare_arrows),
-                    label: const Text('Compare'),
+                    icon: const Icon(Icons.navigate_next),
+                    label: const Text('Next'),
                   ),
                 ),
                 const SizedBox(width: 12),

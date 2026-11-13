@@ -7,9 +7,6 @@ import '../domain/ocr_service.dart';
 
 enum PreprocessMode { grayscaleContrast, binarizeHalfSize }
 
-/// EXPERIMENT for the "preprocessing made OCR worse" slide.
-/// Writes a processed copy next to the original photo and returns its path.
-/// Measure it against the untouched photo before you trust it.
 Future<String> preprocessForExperiment(String path, PreprocessMode mode) async {
   final bytes = await File(path).readAsBytes();
   final decoded = img.decodeImage(bytes);
@@ -36,7 +33,6 @@ Future<String> preprocessForExperiment(String path, PreprocessMode mode) async {
   return outPath;
 }
 
-/// Decorator: preprocess the photo, then hand it to another OcrService.
 class PreprocessingOcrService implements OcrService {
   PreprocessingOcrService(this._inner, this.mode);
 
@@ -47,7 +43,6 @@ class PreprocessingOcrService implements OcrService {
   Future<OcrDocument> recognize(String imagePath) async =>
       _inner.recognize(await preprocessForExperiment(imagePath, mode));
 
-  /// The wrapped service has its own owner, so there is nothing to release.
   @override
   Future<void> dispose() async {}
 }

@@ -17,7 +17,6 @@ class IdFields extends Equatable {
   final String? dateOfBirth;
   final String? districtOfBirth;
 
-  /// How many of the four fields were found.
   int get foundCount =>
       [surname, givenNames, idNumber, dateOfBirth, districtOfBirth].where((v) => v != null).length;
 
